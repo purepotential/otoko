@@ -375,10 +375,9 @@ type digitalItem struct {
 		PaidFor         bool    `json:"paid_for"`
 		IsNameYourPrice bool    `json:"is_name_your_price"`
 	} `json:"download_items"`
-	CancelPledgeInfo any `json:"cancel_pledge_info"`
-	SignupParams     struct {
-	} `json:"signup_params"`
-	FanOnboarding struct {
+	CancelPledgeInfo any      `json:"cancel_pledge_info"`
+	SignupParams     struct{} `json:"signup_params"`
+	FanOnboarding    struct {
 		Tooltips                 any    `json:"tooltips"`
 		NumTooltips              int    `json:"num_tooltips"`
 		TooltipNumber            any    `json:"tooltip_number"`

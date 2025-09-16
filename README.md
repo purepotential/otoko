@@ -21,9 +21,13 @@ go install github.com/apprehensions/otoko@latest
 ## Usage
 `otoko` requires the `Cookie` header made on bandcamp web requests.
 
-To retrieve your `Cookie` header, you need to copy it from a [bandcamp.com](https://bandcamp.com/) network request, which can be found in a network request in the 'Request Headers' section under the network requests tab in your browser.
+For convenience, the system browser cookies will be used if available, otherwise
+`otoko` will fall back to reading from a cookie file.
 
-Afterwards, you can copy the copied `Cookie` value to a file named `otoko-cookies.txt`, which `otoko` uses as the default cookies path (you may choose to change it with the `-cookies` flag).
+The cookie file parameter (default `otoko-cookies.txt`) should be the value of
+the `Cookie` header from a [bandcamp.com](https://bandcamp.com/) network request,
+which can be found in a network request in the 'Request Headers' section under the network
+requests tab in the browser.
 
 Example usage:
 ```
@@ -48,7 +52,8 @@ Music
         ├── 02 _.flac
         └── cover.jpg
 ```
-Music belonging to albums or tracks are saved without the artist and album in the filename, since said metadata is already represented in the directory structure.
+Music belonging to albums or tracks are saved without the artist and album in the
+filename, since said metadata is already represented in the directory structure.
 
 Albums and tracks with the same name will have their tralbum ID appended to the name.
 
