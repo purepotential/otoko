@@ -5,6 +5,7 @@ go 1.23.10
 toolchain go1.24.1
 
 require (
+	github.com/alecthomas/kong v1.13.0
 	github.com/browserutils/kooky v0.2.5-0.20250712134644-aa53ea57e56c
 	github.com/vbauerster/mpb/v8 v8.9.3
 	golang.org/x/net v0.42.0

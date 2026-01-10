@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func ExtractAlbum(src *os.File, dir string) error {
+func extractAlbum(src *os.File, dir string) error {
 	s, err := src.Stat()
 	if err != nil {
 		return err

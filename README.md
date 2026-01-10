@@ -1,9 +1,9 @@
 # otoko (音庫)
 
-Simple CLI [bandcamp](https://bandcamp.com) collection synchronizer.
+Simple CLI [bandcamp](https://bandcamp.com) collection synchronizer and manager.
 
 ```
-$ ./otoko -o ~/music
+$ ./otoko --format flac ~/music
 sjalvmord 7 / 71                                ⠼                                 
 a2594097446 475.8 MiB / 518.4 MiB  █████████████████████████████████████████████████▌░░░░░ 2.30MiB/s
 a382191878  466.5 MiB / 1.1 GiB    ██████████████████████▌░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 2.28MiB/s
@@ -19,26 +19,38 @@ go install github.com/sewnie/otoko@latest
 ```
 
 ## Usage
-`otoko` requires the `Cookie` header made on bandcamp web requests.
 
-For convenience, the system browser cookies will be used if available, otherwise
-`otoko` will fall back to reading from a cookie file.
+```
+Usage: otoko <command> [flags]
 
-The cookie file parameter (default `otoko-cookies.txt`) should be the value of
-the `Cookie` header from a [bandcamp.com](https://bandcamp.com/) network request,
+Flags:
+  --identity=    Bandcamp identity cookie value, fetched from browser if empty ($BANDCAMP_IDENTITY)
+
+Commands:
+  value [flags]
+    Calculate the total value of your Bandcamp collection
+
+  sync <output> [<tralbums> ...] [flags]
+    Download and synchronize your collection to a local directory
+
+  list [flags]
+    Display detailed metadata for tracks and albums in your collection
+```
+
+`otoko` requires the `identity` cookie for making authorized requests on Bandcamp.
+
+
+The identity parameter `--identity` must be the value of the `identity` cookie, found from
+the `Cookie` header in a [bandcamp.com](https://bandcamp.com/) network request,
 which can be found in a network request in the 'Request Headers' section under the network
-requests tab in the browser.
-
-Example usage:
-```
-otoko -format flac -o Music
-```
+requests tab in the browser. `otoko` will attempt to fetch this cookie automatically from
+your browser.
 
 ## Behavior
-Music is downloaded to the given output directory (`-o`, default `.`) with this structure:
+Music is downloaded to the given output directory with this structure:
 
 ```
-Music
+[Output]
 ├── Sadness
 │   └── atna
 │       ├── 01 daydreaming.flac
@@ -57,4 +69,4 @@ filename, since said metadata is already represented in the directory structure.
 
 Albums and tracks with the same name will have their tralbum ID appended to the name.
 
-If the track or album already exists, it is skipped.
+If the track or the album's tracks already exists, it is skipped.

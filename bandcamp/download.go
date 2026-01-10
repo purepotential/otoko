@@ -2,15 +2,18 @@ package bandcamp
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 
 	"golang.org/x/net/html"
 )
 
+// While bandcamp stores the extension metadata, this is required
+// to check if a given track exists for the given format.
 var Extensions = map[string]string{
+	// Fetched from item download page-data
 	"mp3-v0":        ".mp3",
 	"mp3-320":       ".mp3",
 	"flac":          ".flac",
@@ -21,91 +24,60 @@ var Extensions = map[string]string{
 	"aiff-lossless": ".aiff",
 }
 
-type RedownloadItem struct {
-	Item
-	URL string
-}
-
-type DownloadItem struct {
-	Item
-	Release ItemRelease
-	Download
-}
-
 type Download struct {
+	Email    string `json:"-"`
 	Size     string `json:"size_mb"`
 	Encoding string `json:"encoding_name"`
 	URL      string `json:"url"`
 }
 
-type DigitalItem struct {
-	Downloads ItemRedownloads `json:"downloads"`
-	Release   ItemRelease     `json:"release_date"`
-}
+func (c *Client) GetItemDownload(item *Item, format string) (*Download, error) {
+	var data struct {
+		// Includes metadata about available encodings, but for simplicity
+		// it is stored internally in [Extensions]
+		//
+		// Bandcamp stores this as an array despite only allowing one
+		// item to be downloaded in this request
+		Email string `json:"fan_email"`
+		Items []struct {
+			Downloads map[string]Download `json:"downloads"`
+		} `json:"download_items"`
+	}
 
-// map[Extensions.key]Download
-type ItemRedownloads map[string]Download
-
-func (c *Client) GetRedownloadItems(id FanID) ([]RedownloadItem, error) {
-	var items []RedownloadItem
-
-	ci, err := c.GetCollectionItems(id)
+	req, err := http.NewRequest("GET", item.Download, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, item := range ci.Items {
-		name := fmt.Sprint(item.SaleItemType, item.SaleItemID)
-		url, ok := ci.RedownloadURLs[name]
-		if !ok {
-			return nil, fmt.Errorf("missing download for %s", name)
-		}
-
-		items = append(items, RedownloadItem{
-			Item: item, URL: url,
-		})
-	}
-
-	return items, nil
-}
-
-func (c *Client) GetDownloadItem(item *RedownloadItem, format string) (*DownloadItem, error) {
-	digital, err := c.GetItemRedownloads(item)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, d := range digital.Downloads {
-		if d.Encoding == format {
-			return &DownloadItem{
-				Item:     item.Item,
-				Download: d,
-				Release:  digital.Release,
-			}, nil
-		}
-	}
-
-	return nil, fmt.Errorf("format %s unavailable", format)
-}
-
-func (c *Client) GetItemRedownloads(item *RedownloadItem) (*DigitalItem, error) {
-	var blob string
-	dd := struct {
-		Items []DigitalItem `json:"download_items"`
-	}{}
-
-	req, err := http.NewRequest("GET", item.URL, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := c.c.Do(req)
+	resp, err := c.Client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	z := html.NewTokenizer(resp.Body)
+	if err := decodeBlob(resp.Body, &data); err != nil {
+		return nil, err
+	}
+
+	digital := &data.Items[0]
+
+	for _, d := range digital.Downloads {
+		if d.Encoding != format {
+			continue
+		}
+
+		d.Email = data.Email
+		return &d, nil
+	}
+
+	return nil, fmt.Errorf("format %s unavailable", format)
+
+}
+
+func decodeBlob(r io.ReadCloser, v any) error {
+	var blob string
+
+	z := html.NewTokenizer(r)
 	for {
 		t := z.Next()
 		if t == html.ErrorToken {
@@ -113,7 +85,7 @@ func (c *Client) GetItemRedownloads(item *RedownloadItem) (*DigitalItem, error) 
 				break
 			}
 
-			return nil, z.Err()
+			return z.Err()
 		}
 
 		k := z.Token()
@@ -127,20 +99,11 @@ func (c *Client) GetItemRedownloads(item *RedownloadItem) (*DigitalItem, error) 
 				break
 			}
 		}
-
-		if blob != "" {
-			break
-		}
 	}
 
 	if blob == "" {
-		return nil, errors.New("no download data found")
+		return fs.ErrNotExist
 	}
 
-	err = json.Unmarshal([]byte(blob), &dd)
-	if err != nil {
-		return nil, err
-	}
-
-	return &dd.Items[0], nil
+	return json.Unmarshal([]byte(blob), v)
 }

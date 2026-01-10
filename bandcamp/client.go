@@ -6,82 +6,64 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
+	"net/url"
+	"strings"
 )
 
-type userTransport struct {
-	cookie string
-	base   http.RoundTripper
-}
-
-func (ut *userTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	req.Header.Add("Cookie", ut.cookie)
-	return ut.base.RoundTrip(req)
-}
-
+// Client embeds an [http.Client] to make currently implemented Bandcamp
+// API calls that are undocumented.
 type Client struct {
-	c *http.Client
+	BaseURL *url.URL
+	*http.Client
 }
 
-type APIError struct {
-	IsError bool   `json:"error"`
-	Message string `json:"error_message"`
-}
+// New returns a new Client. To make authenticated API calls,
+// an authenticated auoted Bandcamp login 'identity' cookie is required.
+func New(identity string) *Client {
+	url := url.URL{Scheme: "https", Host: "bandcamp.com"}
 
-func (e APIError) Error() string {
-	return e.Message
-}
+	// Cookiejar preferred for Bandcamp to get the best BACKENDID
+	jar, _ := cookiejar.New(nil)
+	jar.SetCookies(&url, []*http.Cookie{
+		{Name: "identity", Value: identity, Quoted: false},
+	})
 
-func New(bandcampCookie string) *Client {
-	return &Client{c: &http.Client{
-		Transport: &userTransport{cookie: bandcampCookie, base: http.DefaultTransport},
-	}}
-}
-
-func (c *Client) Do(req *http.Request) (*http.Response, error) {
-	return c.c.Do(req)
-}
-
-func (c *Client) Request(method, endpoint string, body, data interface{}) error {
-	for {
-		err := c.request(method, endpoint, body, data)
-
-		switch err {
-		// case http.StatusOK:
-		// 	body = b
-		// 	data = d
-		// 	return nil
-		// case http.StatusTooManyRequests:
-		// 	continue
-		default:
-			return err
-		}
+	return &Client{
+		BaseURL: url.JoinPath("api"),
+		Client:  &http.Client{Jar: jar},
 	}
 }
 
-func (c *Client) request(method, endpoint string, body, data interface{}) error {
-	buf := new(bytes.Buffer)
+func (c *Client) Request(method, endpoint string, body, v any) error {
+	var buf io.ReadWriter
 	if body != nil {
+		buf = new(bytes.Buffer)
 		if err := json.NewEncoder(buf).Encode(body); err != nil {
 			return err
 		}
 	}
 
-	req, err := http.NewRequest(method, bc+"/api/"+endpoint, buf)
+	req, err := http.NewRequest(
+		method, c.BaseURL.JoinPath(endpoint).String(), buf)
 	if err != nil {
 		return err
 	}
 
-	req.Header.Set("Content-Type", "application/json")
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := c.c.Do(req)
+	resp, err := c.Client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad status: %s", resp.Status)
+	content := resp.Header.Get("Content-Type")
+	if !strings.HasPrefix(content, "application/json") {
+		return &StatusError{StatusCode: resp.StatusCode}
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -89,16 +71,31 @@ func (c *Client) request(method, endpoint string, body, data interface{}) error 
 		return err
 	}
 
-	e := new(APIError)
-	if err := json.Unmarshal(b, &e); err == nil {
-		if e.IsError {
-			return e
-		}
+	ret := new(Error)
+	if err := json.Unmarshal(b, &ret); err == nil && ret.IsError {
+		return ret
 	}
 
-	if data != nil {
-		return json.Unmarshal(b, &data)
+	if v != nil {
+		return json.Unmarshal(b, &v)
 	}
 
 	return nil
+}
+
+type StatusError struct {
+	StatusCode int
+}
+
+func (e *StatusError) Error() string {
+	return fmt.Sprintf("bad response: %s", http.StatusText(e.StatusCode))
+}
+
+type Error struct {
+	IsError bool   `json:"error"`
+	Message string `json:"error_message"`
+}
+
+func (e Error) Error() string {
+	return e.Message
 }
