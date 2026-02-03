@@ -1,4 +1,4 @@
-module github.com/sewnie/otoko
+module github.com/purepotential/otoko
 
 go 1.23.10
 
