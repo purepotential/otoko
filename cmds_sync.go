@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sewnie/otoko/bandcamp"
+	"github.com/purepotential/otoko/bandcamp"
 	"github.com/vbauerster/mpb/v8"
 	"github.com/vbauerster/mpb/v8/decor"
 	"golang.org/x/sync/semaphore"
