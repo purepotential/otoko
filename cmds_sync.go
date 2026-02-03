@@ -217,10 +217,13 @@ func (cmd *syncCmd) Download(
 	}
 
 	err = extractAlbum(f, name)
-	if errors.Is(err, zip.ErrFormat) {
-		return fmt.Errorf("email missing from bandcamp account: %s", download.Email)
+	if err != nil {
+	    // Nie zakładaj że to problem z emailem - pokaż prawdziwy błąd
+	    if errors.Is(err, zip.ErrFormat) {
+	        return fmt.Errorf("invalid ZIP format (possible email verification issue): %w", err)
+	    }
+	    return fmt.Errorf("extract album failed: %w", err)
 	}
-	return err
 }
 
 func barStyle() mpb.BarStyleComposer {
