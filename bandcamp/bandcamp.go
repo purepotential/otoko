@@ -4,6 +4,7 @@ package bandcamp
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"math"
 	"net/http"
 	"time"
@@ -61,27 +62,31 @@ func (c *Collection) UnmarshalJSON(b []byte) error {
 		RedownloadURLs map[string]string  `json:"redownload_urls"`
 		Tracklist      map[string][]Track `json:"tracklists"`
 	}
-
 	if err := json.Unmarshal(b, &data); err != nil {
 		return err
 	}
-
 	for _, i := range data.Items {
-		var ok bool
-
-		i.Tracks, ok = data.Tracklist[i.String()]
-		if !ok {
-			return fmt.Errorf("item %s missing tracklist", i)
+		// Sprawdź tracklist
+		tracks, hasTracklist := data.Tracklist[i.String()]
+		if !hasTracklist {
+			// Pomiń item bez tracklisty
+			fmt.Fprintf(os.Stderr, "warning: skipping item %s (missing tracklist)\n", i)
+			continue
 		}
-
-		i.Download, ok = data.RedownloadURLs[i.Sale.String()]
-		if !ok {
-			return fmt.Errorf("item %s missing redownload", i)
+		
+		// Sprawdź download URL
+		downloadURL, hasDownload := data.RedownloadURLs[i.Sale.String()]
+		if !hasDownload {
+			// Pomiń item bez download URL
+			fmt.Fprintf(os.Stderr, "warning: skipping item %s (missing redownload URL)\n", i)
+			continue
 		}
-
+		
+		// Przypisz i dodaj do kolekcji
+		i.Tracks = tracks
+		i.Download = downloadURL
 		*c = append(*c, i)
 	}
-
 	return nil
 }
 
