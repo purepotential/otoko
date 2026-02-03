@@ -15,7 +15,7 @@ import (
 	_ "github.com/browserutils/kooky/browser/epiphany"
 	_ "github.com/browserutils/kooky/browser/firefox"
 	_ "github.com/browserutils/kooky/browser/safari"
-	"github.com/sewnie/otoko/bandcamp"
+	"github.com/purepotential/otoko/bandcamp"
 )
 
 type options struct {
