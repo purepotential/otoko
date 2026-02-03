@@ -32,9 +32,9 @@ func extractAlbum(src *os.File, dir string) error {
 		filename = sanitizeUnicode(filename)
 		
 		name := filepath.Join(dir, filename)
-		if err := unzipFile(f, name); err != nil {
-			return err
-		}
+	if err := unzipFile(f, name); err != nil {
+    	return fmt.Errorf("unzip %q to %q: %w", f.Name, name, err)
+	}
 	}
 	return nil
 }
